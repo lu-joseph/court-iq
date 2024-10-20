@@ -1,0 +1,13 @@
+tqdm
+pycocotools
+supervision
+inference
+inference-gpu
+numpy
+scipy
+scikit-learn
+markdown
+requests
+jsonpickle
+requests-oauthlib
+ultralytics==8.0.179
