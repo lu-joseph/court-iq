@@ -10,4 +10,5 @@ markdown
 requests
 jsonpickle
 requests-oauthlib
+jupyter
 ultralytics==8.0.179

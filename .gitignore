@@ -1,1 +1,5 @@
 .env
+.ipython
+.jupyter
+.local
+.bash_history
