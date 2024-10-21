@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     python3.9 \
     python3-pip \
     screen \
+    git \
     libgl1 \
     libgl1-mesa-glx \
     libglib2.0-0 -y && \
