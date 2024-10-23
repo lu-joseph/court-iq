@@ -3,3 +3,9 @@
 .jupyter
 .local
 .bash_history
+.wget-hsts
+.vscode
+.cache
+.config
+.nv
+output
