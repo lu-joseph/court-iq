@@ -9,3 +9,7 @@
 .config
 .nv
 output
+shot_charts
+.python_history
+__pycache__
+videos
