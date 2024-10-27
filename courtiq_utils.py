@@ -187,7 +187,7 @@ def get_bird_xys_for_shot_frame(shot_frame_idx, frame_to_xy):
     return xys
 
 
-def plot_limb(limb_xys, shot_frame_idx, title=""):
+def plot_limb(limb_xys, shot_frame_idx, title="", save_dir=None, file_name=None):
     """
     limb_xys: list[x,y] 
     """
@@ -197,3 +197,50 @@ def plot_limb(limb_xys, shot_frame_idx, title=""):
     plt.title(title)
     plt.legend()
     plt.show()
+    if save_dir:
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        plt.savefig(save_dir + '/' +  file_name)
+
+
+def split_into_shots(video_file, frames_before_shot=10,frames_after_shot=10):
+    """
+    ASSUMES CSV HAS BEEN CREATED
+    """
+    video_name = video_file.split('/')[-1][:-4]
+    print(f'video name: {video_name}')
+    video_info = sv.VideoInfo.from_video_path(video_path=video_file)
+    csv_path = f'TrackNetV3/pred_result/{video_name}_ball.csv'
+    if not os.path.exists(csv_path):
+        print("csv not found")
+        return
+    frame_xys = get_frame_xys_from_csv(csv_path)
+    shot_frames = get_shot_frames_from_xys(frame_xys)
+
+    for idx,shot_idx in enumerate(shot_frames):
+        start_frame = max(shot_idx-frames_before_shot,0)
+        end_frame = min(shot_idx+frames_after_shot,video_info.total_frames - 1)
+        total_frames = end_frame - start_frame + 1
+        shot_video_info = sv.VideoInfo(width=video_info.width,height=video_info.height,fps=video_info.fps,total_frames=total_frames)
+        output_directory = f'./output/videos/{video_name}'
+        if not os.path.exists(output_directory):
+            os.makedirs(output_directory)
+        output_path = f'{output_directory}/shot{idx}.mp4'
+        
+        with sv.VideoSink(target_path=output_path,video_info=shot_video_info, codec="mp4v") as sink:
+            for frame in sv.get_video_frames_generator(source_path=video_file,start=start_frame,end=end_frame):
+                sink.write_frame(frame)
+        print(f'done shot {idx} at {output_path}',end='\r')
+    print('\ndone')
+
+def plot_shot(shot_idx, csv_file, type_of_shot, video_num, save_dir=None):
+    frame_xys = get_frame_xys_from_csv(csv_file)
+    shot_frames = get_shot_frames_from_xys(frame_xys)
+    shot_frame_idx = shot_frames[shot_idx]
+    print(f'shot happens at frame {shot_frame_idx}')
+    right_elbow, right_wrist = get_xys_for_shot_frame(shot_frame_idx)
+    bird = get_bird_xys_for_shot_frame(shot_frame_idx, frame_xys)
+
+    plot_limb(right_elbow, shot_frame_idx, f'elbow during {type_of_shot} (shot {shot_idx})',save_dir + f'/elbow', f'{video_num}_{shot_idx}.png')
+    plot_limb(right_wrist, shot_frame_idx, f'wrist during {type_of_shot} (shot {shot_idx})',save_dir + f'/wrist', f'{video_num}_{shot_idx}.png')
+    plot_limb(bird, shot_frame_idx, f'bird during {type_of_shot}, (shot {shot_idx})',save_dir + f'/bird', f'{video_num}_{shot_idx}.png')
