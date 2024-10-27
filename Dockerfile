@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y \
     screen \
     git \
     wget \
+    ffmpeg libx264-dev libavcodec-extra libsm6 libxext6 \
     unzip && \
     rm -rf /var/lib/apt/lists/*
 
