@@ -2,6 +2,8 @@ import cv2
 import supervision as sv
 
 import numpy as np
+import torch
+import time
 
 from typing import Optional, Tuple
 from dataclasses import dataclass
@@ -102,22 +104,32 @@ def get_points_from_court_prediction(class_name: str, predictions):
     return side_prediction[0].points
 
 # 
-def filter_results(results, i, j):
-    results.masks = Masks(results.masks.data[i:j], results.orig_shape) if results.masks else None
-    results.boxes = Boxes(results.boxes.data[i:j], results.orig_shape) if results.boxes else None
-    results.probs = Probs(results.probs.data[i:j], results.orig_shape) if results.probs else None
-    results.keypoints = Keypoints(results.keypoints.data[i:j], results.orig_shape) if results.keypoints else None
-    results.obb = OBB(results.obb.data[i:j], results.orig_shape) if results.obb else None
+def filter_results(results, indices, verbose=False):
+    start = time.time()
+    if results.masks: results.update(masks=np.take(results.masks.data.cpu(), indices, axis=0))
+    if results.boxes: results.update(boxes=np.take(results.boxes.data.cpu(), indices, axis=0))
+    if results.probs: results.update(probs=np.take(results.probs.data.cpu(), indices, axis=0))
+    if results.obb: results.update(obb=np.take(results.obb.data.cpu(), indices, axis=0))
+    if results.keypoints: 
+        results.keypoints = Keypoints(np.take(results.keypoints.data.cpu(), indices, axis=0), results.orig_shape)
+    end = time.time()
+    if verbose:
+        print(f'results obj filtering took {end-start}s')
 
-def get_court_path(frame, side: str):
+def get_court_paths(frame, verbose=False):
+    infer_start = time.time()
     court_results = court_detection_model.infer(frame)[0]
-    near_side_points = get_points_from_court_prediction(side, court_results.predictions)
-    polygon = [[point.x, point.y] for point in near_side_points]
-    path = mpltPath.Path(polygon)
-    return path
+    infer_end = time.time()
+    
+    if len(court_results.predictions) != 2:
+        raise Exception("wrong number of court sides detected")
+    if verbose:
+        print(f'inference time: {infer_end - infer_start}, points extraction time: {infer_end - infer_start}')
+    return [mpltPath.Path([[point.x, point.y] for point in court_results.predictions[i].points]) for i in range(2)]
 
 # returns 
-def get_players_in_path(pose_results, path: mpltPath.Path, limit_one: bool):
+def get_players_on_court(pose_results, paths, verbose=False):
+    start = time.time()
     key_points_list = pose_results.keypoints.data.cpu().numpy()
     num_ppl = len(key_points_list)
     players = []
@@ -125,18 +137,22 @@ def get_players_in_path(pose_results, path: mpltPath.Path, limit_one: bool):
         key_points = key_points_list[i]
         left_foot = key_points[left_foot_kid]
         right_foot = key_points[right_foot_kid]
-        if path.contains_points([[foot[0], foot[1]] for foot in [left_foot, right_foot]]).any():
+        feet_coords = [[foot[0], foot[1]] for foot in [left_foot, right_foot]]
+        if any([path.contains_points(feet_coords).any() for path in paths]):
             players.append(i)
-            if limit_one: 
-                break
+    end = time.time()
+    if verbose:
+        print(f'took {end-start}s to get players on court')
     return players
 
-def get_pose_results_for_path(frame, path):
+def get_pose_results_on_court(frame, verbose=True):
     pose_results = pose_model(frame, verbose=False)[0]
-    players_in_path = get_players_in_path(pose_results, path, limit_one=True)
+    paths = get_court_paths(frame, verbose=verbose)
+    players_in_path = get_players_on_court(pose_results, paths, verbose=verbose)
     if not players_in_path: return None
-    player_idx = players_in_path[0]
-    filter_results(pose_results, player_idx, player_idx + 1)
+    filter_results(pose_results, players_in_path, verbose=verbose)
+    if verbose:
+        print(pose_results.verbose())
     return pose_results
 
 def get_frame_xys_from_csv(file):
@@ -244,3 +260,7 @@ def plot_shot(shot_idx, csv_file, type_of_shot, video_num, save_dir=None):
     plot_limb(right_elbow, shot_frame_idx, f'elbow during {type_of_shot} (shot {shot_idx})',save_dir + f'/elbow', f'{video_num}_{shot_idx}.png')
     plot_limb(right_wrist, shot_frame_idx, f'wrist during {type_of_shot} (shot {shot_idx})',save_dir + f'/wrist', f'{video_num}_{shot_idx}.png')
     plot_limb(bird, shot_frame_idx, f'bird during {type_of_shot}, (shot {shot_idx})',save_dir + f'/bird', f'{video_num}_{shot_idx}.png')
+
+# def plot_skeleton_on_frame(frame):
+#     results = pose_model(frame)[0]
+#     return results.plot(boxes=False)
