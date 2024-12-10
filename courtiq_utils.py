@@ -145,7 +145,7 @@ def get_players_on_court(pose_results, paths, verbose=False):
         print(f'took {end-start}s to get players on court')
     return players
 
-def get_pose_results_on_court(frame, verbose=True):
+def get_pose_results_on_court(frame, tracker, verbose=True):
     pose_results = pose_model(frame, verbose=False)[0]
     paths = get_court_paths(frame, verbose=verbose)
     players_in_path = get_players_on_court(pose_results, paths, verbose=verbose)
@@ -261,6 +261,7 @@ def plot_shot(shot_idx, csv_file, type_of_shot, video_num, save_dir=None):
     plot_limb(right_wrist, shot_frame_idx, f'wrist during {type_of_shot} (shot {shot_idx})',save_dir + f'/wrist', f'{video_num}_{shot_idx}.png')
     plot_limb(bird, shot_frame_idx, f'bird during {type_of_shot}, (shot {shot_idx})',save_dir + f'/bird', f'{video_num}_{shot_idx}.png')
 
-# def plot_skeleton_on_frame(frame):
-#     results = pose_model(frame)[0]
-#     return results.plot(boxes=False)
+def calculate_speed(current_position, previous_position, time_elapsed: float) -> float:
+    """Calculate speed in pixels/second."""
+    displacement = abs(sum(np.array(current_position) - np.array(previous_position)))
+    return displacement / time_elapsed if time_elapsed else 0
